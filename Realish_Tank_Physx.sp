@@ -8,7 +8,7 @@
 public Plugin:myinfo =
 {
 	name = "Realish_Tank_Phyx",
-	author = "Ludastar (Armonic)",
+	author = "Lux",
 	description = "Add's knockback to all attacks to survivor's from tanks",
 	version = PLUGIN_VERSION,
 	url = "https://forums.alliedmods.net/showthread.php?p=2429846#post2429846"

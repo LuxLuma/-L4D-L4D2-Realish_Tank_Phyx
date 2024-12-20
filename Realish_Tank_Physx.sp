@@ -2,6 +2,7 @@
 #include <sourcemod>
 #include <sdktools>
 #include <sdkhooks>
+//#include <smlib>
 
 #define PLUGIN_VERSION "1.3"
 
@@ -233,91 +234,6 @@ static IsSurvivorAlive(iClient)
 	return true;
 }
 
-static bool:Entity_Hurt(entity, damage, attacker=0, damageType=DMG_GENERIC, const String:fakeClassName[]="")
-{
-	static point_hurt = INVALID_ENT_REFERENCE;
-	
-	if (point_hurt == INVALID_ENT_REFERENCE || !IsValidEntity(point_hurt)) {
-		point_hurt = EntIndexToEntRef(Entity_Create("point_hurt"));
-		
-		if (point_hurt == INVALID_ENT_REFERENCE) {
-			return false;
-		}
-		
-		DispatchSpawn(point_hurt);
-	}
-	
-	AcceptEntityInput(point_hurt, "TurnOn");
-	SetEntProp(point_hurt, Prop_Data, "m_nDamage", damage);
-	SetEntProp(point_hurt, Prop_Data, "m_bitsDamageType", damageType);
-	Entity_PointHurtAtTarget(point_hurt, entity);
-	
-	if (fakeClassName[0] != '\0') {
-		Entity_SetClassName(point_hurt, fakeClassName);
-	}
-	
-	AcceptEntityInput(point_hurt, "Hurt", attacker);
-	AcceptEntityInput(point_hurt, "TurnOff");
-	
-	if (fakeClassName[0] != '\0') {
-		Entity_SetClassName(point_hurt, "point_hurt");
-	}
-	
-	return true;
-}
-
-static Entity_Create(const String:className[], ForceEdictIndex=-1)
-{
-	if (ForceEdictIndex != -1 && IsValidEntity(ForceEdictIndex)) {
-		return INVALID_ENT_REFERENCE;
-	}
-	
-	return CreateEntityByName(className, ForceEdictIndex);
-}
-
-static Entity_PointHurtAtTarget(entity, target, const String:name[]="")
-{
-	decl String:targetName[128];
-	Entity_GetTargetName(entity, targetName, sizeof(targetName));
-	
-	if (name[0] == '\0') {
-		
-		if (targetName[0] == '\0') {
-			// Let's generate our own name
-			Format(
-					targetName,
-					sizeof(targetName),
-					"_smlib_Entity_PointHurtAtTarget:%d",
-					target
-					);
-		}
-	}
-	else {
-		strcopy(targetName, sizeof(targetName), name);
-	}
-	
-	DispatchKeyValue(entity, "DamageTarget", targetName);
-	Entity_SetName(target, targetName);
-}
-
-static Entity_SetName(entity, const String:name[], any:...)
-{
-	decl String:format[128];
-	VFormat(format, sizeof(format), name, 3);
-	
-	return DispatchKeyValue(entity, "targetname", format);
-}
-
-static Entity_GetTargetName(entity, String:buffer[], size)
-{
-	return GetEntPropString(entity, Prop_Data, "m_target", buffer, size);
-}
-
-static Entity_SetClassName(entity, const String:className[])
-{
-	return DispatchKeyValue(entity, "classname", className);
-}
-
 static L4D_GetPlayerTempHealth(client)
 {
 	static Handle:painPillsDecayCvar = INVALID_HANDLE;
@@ -412,4 +328,105 @@ static Entity_PushForce(iEntity, Float:fForce, Float:fAngles[3], Float:fMax=0.0,
 static bool:IsValidEntRef(iEntRef)
 {
 	return (iEntRef != 0 && EntRefToEntIndex(iEntRef) != INVALID_ENT_REFERENCE);
+}
+
+stock bool Entity_Hurt(int entity, int damage, int attacker=0, int damageType=DMG_GENERIC, const char[] fakeClassName="", float customOrigin[3]={0.0, 0.0, 0.0})
+{
+	static int point_hurt = INVALID_ENT_REFERENCE;
+
+	if (point_hurt == INVALID_ENT_REFERENCE || !IsValidEntity(point_hurt)) {
+		point_hurt = EntIndexToEntRef(Entity_Create("point_hurt"));
+
+		if (point_hurt == INVALID_ENT_REFERENCE) {
+			return false;
+		}
+
+		DispatchSpawn(point_hurt);
+	}
+
+	AcceptEntityInput(point_hurt, "TurnOn");
+	SetEntProp(point_hurt, Prop_Data, "m_nDamage", damage);
+	SetEntProp(point_hurt, Prop_Data, "m_bitsDamageType", damageType);
+	
+	char orignalTargetName[128];
+	Entity_GetName(entity, orignalTargetName, sizeof(orignalTargetName));
+	Entity_PointHurtAtTarget(point_hurt, entity);
+
+	if (fakeClassName[0] != '\0') {
+		Entity_SetClassName(point_hurt, fakeClassName);
+	}
+
+	TeleportEntity(point_hurt, customOrigin, NULL_VECTOR, NULL_VECTOR);
+
+	AcceptEntityInput(point_hurt, "Hurt", attacker);
+	AcceptEntityInput(point_hurt, "TurnOff");
+
+	if (fakeClassName[0] != '\0') {
+		Entity_SetClassName(point_hurt, "point_hurt");
+	}
+	
+	DispatchKeyValue(entity, "targetname", orignalTargetName);
+	return true;
+}
+
+stock int Entity_GetName(int entity, char[] buffer, int size)
+{
+	return GetEntPropString(entity, Prop_Data, "m_iName", buffer, size);
+}
+
+stock bool Entity_SetName(int entity, const char[] name, any ...)
+{
+	char format[128];
+	VFormat(format, sizeof(format), name, 3);
+
+	return DispatchKeyValue(entity, "targetname", format);
+}
+
+stock bool Entity_SetClassName(int entity, const char[] className)
+{
+	return DispatchKeyValue(entity, "classname", className);
+}
+
+stock int Entity_Create(const char[] className, int ForceEdictIndex=-1)
+{
+	if (ForceEdictIndex != -1 && Entity_IsValid(ForceEdictIndex)) {
+		return INVALID_ENT_REFERENCE;
+	}
+
+	return CreateEntityByName(className, ForceEdictIndex);
+}
+
+stock void Entity_PointHurtAtTarget(int entity, int target, const char[] name="")
+{
+	char targetName[128];
+	Entity_GetTargetName(entity, targetName, sizeof(targetName));
+
+	if (name[0] == '\0') {
+
+		if (targetName[0] == '\0') {
+			// Let's generate our own name
+			Format(
+				targetName,
+				sizeof(targetName),
+				"_smlib_Entity_PointHurtAtTarget:%d",
+				target
+			);
+		}
+	}
+	else {
+		strcopy(targetName, sizeof(targetName), name);
+	}
+
+	DispatchKeyValue(entity, "DamageTarget", targetName);
+	Entity_SetName(target, targetName);
+}
+
+stock bool Entity_IsValid(int entity)
+{
+	return IsValidEntity(entity);
+}
+
+stock int Entity_GetTargetName(int entity, char[] buffer, int size)
+{
+	return GetEntPropString(entity, Prop_Data, "m_target", buffer, size);
 }
